@@ -31,6 +31,7 @@ except Exception:
 KITE_LTP_CACHE = {}
 KITE_CLIENT = None
 KITE_OPT_MAP = {}
+KITE_OPT_PRICES = {}
 
 
 def _load_env_file(path: str):
@@ -179,26 +180,12 @@ def process_symbol(symbol: str):
     # Kite option-chain snapshot (ATM) if available
     ce_ltp = pe_ltp = ce_oi = pe_oi = 0.0
     try:
-        if KITE_CLIENT and symbol in KITE_OPT_MAP and price_override:
-            opts = KITE_OPT_MAP.get(symbol, [])
-            if opts:
-                # choose ATM strike
-                strike = min(opts, key=lambda o: abs((o.get('strike') or 0) - price_override)).get('strike')
-                ce = next((o for o in opts if o.get('strike') == strike and o.get('option_type') == 'CE'), None)
-                pe = next((o for o in opts if o.get('strike') == strike and o.get('option_type') == 'PE'), None)
-                tokens = []
-                if ce: tokens.append(f"NFO:{ce['tradingsymbol']}")
-                if pe: tokens.append(f"NFO:{pe['tradingsymbol']}")
-                if tokens:
-                    quotes = KITE_CLIENT.quote(tokens)
-                    if ce:
-                        q = quotes.get(f"NFO:{ce['tradingsymbol']}", {})
-                        ce_ltp = float(q.get('last_price') or 0)
-                        ce_oi = float(q.get('oi') or 0)
-                    if pe:
-                        q = quotes.get(f"NFO:{pe['tradingsymbol']}", {})
-                        pe_ltp = float(q.get('last_price') or 0)
-                        pe_oi = float(q.get('oi') or 0)
+        if symbol in KITE_OPT_PRICES:
+            kp = KITE_OPT_PRICES.get(symbol, {})
+            ce_ltp = float(kp.get("ce_ltp") or 0)
+            pe_ltp = float(kp.get("pe_ltp") or 0)
+            ce_oi = float(kp.get("ce_oi") or 0)
+            pe_oi = float(kp.get("pe_oi") or 0)
     except Exception:
         pass
 
@@ -288,6 +275,8 @@ def main():
             "SUNPHARMA","TATAMOTORS","TATASTEEL","TCS","TECHM","TITAN",
             "ULTRACEMCO","UPL","WIPRO","ADANIENT","APOLLOHOSP"
         ]
+    # ensure only optionable equity symbols (no indices)
+    symbols = [s for s in symbols if s and not s.startswith("^")]
     pool = WorkerPool(workers=2)
 
     # load .env (if present) for Kite creds
@@ -323,9 +312,49 @@ def main():
             for sym, opts in by_underlying.items():
                 nearest = min(set(o['expiry'] for o in opts))
                 KITE_OPT_MAP[sym] = [o for o in opts if o['expiry'] == nearest]
+
+            # precompute ATM option prices in batches to avoid thread issues
+            KITE_OPT_PRICES.clear()
+            tokens = []
+            token_to_sym = {}
+            for sym in symbols:
+                ltp = KITE_LTP_CACHE.get(sym)
+                opts = KITE_OPT_MAP.get(sym, [])
+                if not ltp or not opts:
+                    continue
+                strike = min(opts, key=lambda o: abs((o.get('strike') or 0) - ltp)).get('strike')
+                ce = next((o for o in opts if o.get('strike') == strike and o.get('option_type') == 'CE'), None)
+                pe = next((o for o in opts if o.get('strike') == strike and o.get('option_type') == 'PE'), None)
+                if ce:
+                    t = f"NFO:{ce['tradingsymbol']}"
+                    tokens.append(t)
+                    token_to_sym[t] = (sym, 'ce')
+                if pe:
+                    t = f"NFO:{pe['tradingsymbol']}"
+                    tokens.append(t)
+                    token_to_sym[t] = (sym, 'pe')
+            # fetch quotes in batches
+            for i in range(0, len(tokens), 50):
+                batch = tokens[i:i+50]
+                quotes = KITE_CLIENT.quote(batch) if batch else {}
+                for t, q in quotes.items():
+                    sym, leg = token_to_sym.get(t, (None, None))
+                    if not sym:
+                        continue
+                    if sym not in KITE_OPT_PRICES:
+                        KITE_OPT_PRICES[sym] = {
+                            'ce_ltp': 0, 'ce_oi': 0, 'pe_ltp': 0, 'pe_oi': 0
+                        }
+                    if leg == 'ce':
+                        KITE_OPT_PRICES[sym]['ce_ltp'] = float(q.get('last_price') or 0)
+                        KITE_OPT_PRICES[sym]['ce_oi'] = float(q.get('oi') or 0)
+                    elif leg == 'pe':
+                        KITE_OPT_PRICES[sym]['pe_ltp'] = float(q.get('last_price') or 0)
+                        KITE_OPT_PRICES[sym]['pe_oi'] = float(q.get('oi') or 0)
     except Exception:
         KITE_CLIENT = None
         KITE_OPT_MAP = {}
+        KITE_OPT_PRICES = {}
 
     with mlflow.start_run():
         results = pool.run(symbols, process_symbol)
