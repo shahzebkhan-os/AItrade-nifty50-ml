@@ -39,14 +39,11 @@ status.write("Idle · run refresh to update live data")
 
 show_all = st.checkbox("Show all symbols", value=True)
 
-st.subheader("Predictions")
-
 st.info("RISK NOTICE: Educational only. Not financial advice.")
 
 # QoL controls
 query = st.text_input("Search symbol", "").upper().strip()
 option_filter = st.selectbox("Filter", ["ALL", "CALL", "PUT"]) 
-row_limit = st.slider("Rows", 10, 200, 50, 10)
 
 now_str = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -91,6 +88,10 @@ if query:
 if option_filter != "ALL" and "suggested_option" in df.columns:
     df = df[df["suggested_option"] == option_filter]
 
+# Keep only optionable (F&O) symbols
+if "symbol" in df.columns:
+    df = df[df["symbol"].isin(symbols)]
+
 # Sort by confidence if present
 if "confidence" in df.columns:
     df = df.sort_values("confidence", ascending=False)
@@ -101,7 +102,18 @@ if "symbol" in df.columns:
 
 # Limit rows
 if not show_all:
-    df = df.head(row_limit)
+    df = df.head(50)
+
+# Market sentiment (simple proxy from confidence)
+if "confidence" in df.columns and len(df) > 0:
+    mean_conf = df["confidence"].mean()
+    if mean_conf >= 0.55:
+        sentiment = "Bullish"
+    elif mean_conf <= 0.45:
+        sentiment = "Bearish"
+    else:
+        sentiment = "Neutral"
+    st.subheader(f"Market Sentiment: {sentiment}")
 
 # Rewrite table (clean columns + NSE price override where available)
 col_order = [
@@ -120,6 +132,10 @@ existing = [c for c in col_order if c in df.columns]
 view = df[existing].copy()
 if "confidence" in view.columns:
     view["confidence"] = (view["confidence"] * 100).round(2)
+if "model_accuracy" in view.columns:
+    view["model_accuracy"] = (view["model_accuracy"] * 100).round(2)
+if "model_coverage" in view.columns:
+    view["model_coverage"] = (view["model_coverage"] * 100).round(2)
 
 # Color CALL/PUT
 if "suggested_option" in view.columns:
@@ -136,9 +152,9 @@ if "suggested_option" in view.columns:
         column_config={
             "symbol": st.column_config.TextColumn("Symbol"),
             "price": st.column_config.NumberColumn("Price (NSE if available)", format="%.2f"),
-            "suggested_option": st.column_config.TextColumn("Option"),
-            "option_price": st.column_config.NumberColumn("Option Price", format="%.2f"),
-            "option_value": st.column_config.NumberColumn("Option Value", format="%.2f"),
+            "suggested_option": st.column_config.TextColumn("Suggested Option"),
+            "option_price": st.column_config.NumberColumn("Suggested Option Price", format="%.2f"),
+            "option_value": st.column_config.NumberColumn("Suggested Option OI", format="%.2f"),
             "confidence": st.column_config.NumberColumn("Confidence %", format="%.2f"),
             "model_accuracy": st.column_config.NumberColumn("Model Acc %", format="%.2f"),
             "model_coverage": st.column_config.NumberColumn("Coverage %", format="%.2f"),
