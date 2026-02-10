@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/aayan/.openclaw/workspace/nifty50-ml/mlruns/0/f727db3dde8a46e3beb49effe5d75de5/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: f727db3dde8a46e3beb49effe5d75de5
+run_name: silent-perch-624
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770741145747
+status: 1
+tags: []
+user_id: aayan

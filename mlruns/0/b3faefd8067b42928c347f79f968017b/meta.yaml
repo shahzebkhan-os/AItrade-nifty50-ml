@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/aayan/.openclaw/workspace/nifty50-ml/mlruns/0/b3faefd8067b42928c347f79f968017b/artifacts
+end_time: 1770722018141
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: b3faefd8067b42928c347f79f968017b
+run_name: upset-ape-809
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770721851840
+status: 4
+tags: []
+user_id: aayan

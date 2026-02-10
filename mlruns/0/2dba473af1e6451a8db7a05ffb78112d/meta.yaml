@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/aayan/.openclaw/workspace/nifty50-ml/mlruns/0/2dba473af1e6451a8db7a05ffb78112d/artifacts
+end_time: 1770739093186
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 2dba473af1e6451a8db7a05ffb78112d
+run_name: sneaky-ray-8
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770737805480
+status: 3
+tags: []
+user_id: aayan

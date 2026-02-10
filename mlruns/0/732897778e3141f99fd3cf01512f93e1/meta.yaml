@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/aayan/.openclaw/workspace/nifty50-ml/mlruns/0/732897778e3141f99fd3cf01512f93e1/artifacts
+end_time: null
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 732897778e3141f99fd3cf01512f93e1
+run_name: sassy-sheep-911
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1770741233980
+status: 1
+tags: []
+user_id: aayan
